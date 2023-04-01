@@ -223,6 +223,29 @@ impl CPU {
         let addr = self.get_operand_address(mode);
         self.mem_write(addr, self.register_a);
     }
+    fn adc(&mut self, mode: &AddressingMode) {
+        let addr = self.get_operand_address(mode);
+        let value = self.mem_read(addr);
+        let carry = self.status & 0x01;
+
+        let (rhs, carry_flag1) = value.overflowing_add(carry);
+        let (n, carry_flag2) = self.register_a.overflowing_add(rhs);
+
+        let overflow = ((self.register_a & 0x80) == (value & 0x80)) && ((value & 0x80) != (n & 0x80));
+        self.register_a = n;
+
+        self.status = if carry_flag1 || carry_flag2 {
+            self.status | 0x01
+        } else {
+            self.status & 0xFE
+        };
+        self.status = if overflow {
+            self.status | 0x40
+        } else {
+            self.status & 0xBF
+        };
+        self.update_zero_and_negative_flags(self.register_a);
+    }
 
     fn update_zero_and_negative_flags(&mut self, result: u8) {
         if result == 0 {
